@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Find Nearest MBTA Stop</title>
+    <title>Error</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -14,16 +14,11 @@
             <span class="holiday"> Holiday: {{ next_holiday }}</span>
         </div>
     </div>
-    <div class="home-background"></div>
     <div class="container">
-        <div class="banner">Find Your Nearest MBTA Stop</div>
+        <div class="banner">Error</div>
         <div class="center-content">
-            <h1>Welcome!</h1>
-            <form action="/" method="post">
-                <label for="place_name">Enter a Place Name:</label>
-                <input type="text" id="place_name" name="place_name" required minlength="2">
-                <button type="submit">Submit</button>
-            </form>
+            <p class="error-message">Something went wrong with the search. Please try again.</p>
+            <a href="{{ url_for('index') }}">Go back</a>
         </div>
     </div>
 </body>

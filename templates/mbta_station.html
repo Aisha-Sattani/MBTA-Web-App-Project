@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nearest MBTA Station</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="weather">{{ weather_today }}</div>
+        <div class="date">
+            {{ date_today }}
+            <br>
+            <span class="holiday"> Holiday: {{ next_holiday }}</span>
+        </div>
+    </div>
+    <div class="home-background"></div>
+    <div class="container">
+        <div class="banner">Nearest MBTA Station</div>
+        <div class="center-content">
+            <p class="mbta-info">The nearest MBTA stop to your location is: <strong>{{ station_name }}</strong></p>
+            <p class="mbta-info">Wheelchair Accessible: {{ "Yes" if wheelchair_accessible else "No" }}</p>
+            {% if arrivals %}
+                <p class="arrivals">Upcoming arrivals in minutes: {{ arrivals | join(", ") }}</p>
+            {% else %}
+                <p class="arrivals">No upcoming arrivals found.</p>
+            {% endif %}
+            <a href="{{ url_for('index') }}">Search again</a>
+        </div>
+    </div>
+</body>
+</html>

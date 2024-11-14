@@ -1,5 +1,5 @@
 import os
-
+import requests
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -9,54 +9,96 @@ load_dotenv()
 MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
 MBTA_API_KEY = os.getenv("MBTA_API_KEY")
 
-# Useful base URLs (you need to add the appropriate parameters for each API request)
+# Base URLs
 MAPBOX_BASE_URL = "https://api.mapbox.com/geocoding/v5/mapbox.places"
-MBTA_BASE_URL = "https://api-v3.mbta.com/stops"
+MBTA_BASE_URL = "https://api-v3.mbta.com"
 
-
-# A little bit of scaffolding if you want to use it
 def get_json(url: str) -> dict:
     """
-    Given a properly formatted URL for a JSON web API request, return a Python JSON object containing the response to that request.
-
-    Both get_lat_lng() and get_nearest_station() might need to use this function.
+    Given a properly formatted URL for a JSON web API request,
+    return a Python JSON object containing the response to that request.
     """
-    pass
-
+    response = requests.get(url)
+    response.raise_for_status()  # Check if request was successful
+    return response.json()
 
 def get_lat_lng(place_name: str) -> tuple[str, str]:
     """
-    Given a place name or address, return a (latitude, longitude) tuple with the coordinates of the given place.
-
-    See https://docs.mapbox.com/api/search/geocoding/ for Mapbox Geocoding API URL formatting requirements.
+    Given a place name or address, return a (latitude, longitude) tuple with
+    the coordinates of the given place using the Mapbox Geocoding API.
     """
-    pass
+    url = f"{MAPBOX_BASE_URL}/{place_name}.json?access_token={MAPBOX_TOKEN}"
+    data = get_json(url)
+    # print(data) 
+    
+    # Extract latitude and longitude from the first result
+    coordinates = data['features'][0]['geometry']['coordinates']
+    longitude, latitude = coordinates[0], coordinates[1]
+    return str(latitude), str(longitude)
 
-
-def get_nearest_station(latitude: str, longitude: str) -> tuple[str, bool]:
+def get_nearest_station(latitude: str, longitude: str) -> tuple[str, str, bool]:
     """
-    Given latitude and longitude strings, return a (station_name, wheelchair_accessible) tuple for the nearest MBTA station to the given coordinates.
-
-    See https://api-v3.mbta.com/docs/swagger/index.html#/Stop/ApiWeb_StopController_index for URL formatting requirements for the 'GET /stops' API.
+    Given latitude and longitude strings, return a (station_name, station_id, wheelchair_accessible)
+    tuple for the nearest MBTA station to the given coordinates.
     """
-    pass
+    url = f"{MBTA_BASE_URL}/stops?api_key={MBTA_API_KEY}&filter[latitude]={latitude}&filter[longitude]={longitude}&sort=distance"
+    data = get_json(url)
+    
+    # Extract the nearest station details
+    if data['data']:
+        nearest_stop = data['data'][0]
+        station_name = nearest_stop['attributes']['name']
+        station_id = nearest_stop['id']
+        wheelchair_accessible = nearest_stop['attributes']['wheelchair_boarding'] == 1  # 1 means accessible
+        return station_name, station_id, wheelchair_accessible
+    else:
+        return "No nearby station found", None, False
 
-
-def find_stop_near(place_name: str) -> tuple[str, bool]:
+def get_real_time_arrivals(stop_id: str) -> list:
     """
-    Given a place name or address, return the nearest MBTA stop and whether it is wheelchair accessible.
-
-    This function might use all the functions above.
+    Given a stop ID, return a list of upcoming arrival times in minutes for that stop.
     """
-    pass
+    url = f"{MBTA_BASE_URL}/predictions?api_key={MBTA_API_KEY}&filter[stop]={stop_id}&sort=arrival_time"
+    data = get_json(url)
+    
+    arrivals = []
+    for item in data['data']:
+        arrival_time = item['attributes']['arrival_time']
+        if arrival_time:
+            from datetime import datetime, timezone
+            arrival_dt = datetime.fromisoformat(arrival_time.replace('Z', '+00:00')).astimezone(timezone.utc)
+            now = datetime.now(timezone.utc)
+            minutes_until_arrival = (arrival_dt - now).total_seconds() / 60
+            if minutes_until_arrival > 0:
+                arrivals.append(round(minutes_until_arrival))
+    
+    return arrivals
 
+def find_stop_near(place_name: str) -> tuple[str, bool, list]:
+    """
+    Given a place name or address, return the nearest MBTA stop, whether it is
+    wheelchair accessible, and a list of upcoming arrival times in minutes.
+    """
+    latitude, longitude = get_lat_lng(place_name)
+    station_name, station_id, wheelchair_accessible = get_nearest_station(latitude, longitude)
+    if station_id:
+        arrivals = get_real_time_arrivals(station_id)
+    else:
+        arrivals = []
+    return station_name, wheelchair_accessible, arrivals
 
 def main():
     """
-    You should test all the above functions here
+    Tests all the above functions.
     """
-    pass
-
+    place_name = input("Enter a place name or address: ")
+    station_name, wheelchair_accessible, arrivals = find_stop_near(place_name)
+    accessible_text = "is" if wheelchair_accessible else "is not"
+    print(f"The nearest MBTA stop to '{place_name}' is '{station_name}', which {accessible_text} wheelchair accessible.")
+    if arrivals:
+        print(f"Upcoming arrivals in minutes: {', '.join(map(str, arrivals))}")
+    else:
+        print("No upcoming arrivals found.")
 
 if __name__ == "__main__":
     main()
